@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SignAR — Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050810;
+    --surface: #0d1117;
+    --card: #111827;
+    --border: #1e2d40;
+    --accent: #00e5ff;
+    --accent2: #7c3aed;
+    --accent3: #10b981;
+    --warn: #f59e0b;
+    --text: #e2e8f0;
+    --muted: #64748b;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none; z-index: 0;
+  }
+  .orb {
+    position: fixed; border-radius: 50%; filter: blur(80px);
+    pointer-events: none; z-index: 0;
+  }
+  .orb1 { width:400px; height:400px; background:rgba(0,229,255,0.06); top:-100px; left:-100px; }
+  .orb2 { width:500px; height:500px; background:rgba(124,58,237,0.07); bottom:-150px; right:-100px; }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 24px 40px;
+    border-bottom: 1px solid var(--border);
+    position: relative; z-index: 10;
+  }
+  .logo { display: flex; align-items: center; gap: 12px; text-decoration: none; color: var(--text); }
+  .logo-icon { width:40px; height:40px; background: linear-gradient(135deg, var(--accent), var(--accent2)); border-radius: 10px; display:flex; align-items:center; justify-content:center; font-size:20px; }
+  .logo-text { font-size: 1.4rem; font-weight: 800; }
+  .logo-text span { color: var(--accent); }
+  .back-btn {
+    display: flex; align-items: center; gap: 8px;
+    background: transparent; border: 1px solid var(--border);
+    color: var(--muted); padding: 8px 18px; border-radius: 8px;
+    cursor: pointer; font-family: 'Space Mono', monospace; font-size: 0.8rem;
+    text-decoration: none; transition: all 0.2s;
+  }
+  .back-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .container { position:relative; z-index:1; max-width:960px; margin:0 auto; padding:64px 24px; }
+  
+  .page-header { text-align:center; margin-bottom:64px; }
+  .page-header h1 { font-size: clamp(2rem,5vw,3.5rem); font-weight:800; letter-spacing:-2px; margin-bottom:12px; }
+  .page-header p { color:var(--muted); font-size:1rem; max-width:480px; margin:0 auto; line-height:1.7; }
+
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 24px;
+  }
+
+  .mode-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    padding: 40px;
+    cursor: pointer;
+    text-decoration: none;
+    color: var(--text);
+    display: block;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+    group: true;
+  }
+  .mode-card::before {
+    content: '';
+    position: absolute; inset: 0;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .mode-card.letter::before { background: radial-gradient(circle at top left, rgba(0,229,255,0.08), transparent 60%); }
+  .mode-card.sentence::before { background: radial-gradient(circle at top left, rgba(124,58,237,0.08), transparent 60%); }
+  .mode-card:hover::before { opacity: 1; }
+  .mode-card:hover { transform: translateY(-4px); }
+  .mode-card.letter:hover { border-color: rgba(0,229,255,0.4); box-shadow: 0 20px 50px rgba(0,229,255,0.08); }
+  .mode-card.sentence:hover { border-color: rgba(124,58,237,0.4); box-shadow: 0 20px 50px rgba(124,58,237,0.1); }
+
+  .card-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 14px; border-radius: 100px;
+    font-family: 'Space Mono', monospace; font-size: 0.68rem; font-weight: 700;
+    letter-spacing: 1.5px; margin-bottom: 24px;
+  }
+  .mode-card.letter .card-badge { background: rgba(0,229,255,0.1); border: 1px solid rgba(0,229,255,0.2); color: var(--accent); }
+  .mode-card.sentence .card-badge { background: rgba(124,58,237,0.1); border: 1px solid rgba(124,58,237,0.2); color: #a78bfa; }
+
+  .card-icon {
+    width: 80px; height: 80px;
+    border-radius: 20px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 40px;
+    margin-bottom: 24px;
+  }
+  .mode-card.letter .card-icon { background: rgba(0,229,255,0.08); border: 1px solid rgba(0,229,255,0.15); }
+  .mode-card.sentence .card-icon { background: rgba(124,58,237,0.08); border: 1px solid rgba(124,58,237,0.15); }
+
+  .card-title { font-size: 1.6rem; font-weight: 800; margin-bottom: 12px; letter-spacing: -0.5px; }
+  .card-desc { color: var(--muted); font-size: 0.9rem; line-height: 1.7; margin-bottom: 28px; }
+
+  .card-features { list-style: none; margin-bottom: 32px; }
+  .card-features li {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85rem;
+    display: flex; align-items: center; gap: 8px;
+    color: rgba(226,232,240,0.8);
+  }
+  .card-features li:last-child { border: none; }
+  .feat-dot {
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+  }
+  .mode-card.letter .feat-dot { background: var(--accent); }
+  .mode-card.sentence .feat-dot { background: #a78bfa; }
+
+  .card-cta {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px;
+    border-radius: 12px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+  }
+  .mode-card.letter .card-cta { background: rgba(0,229,255,0.1); color: var(--accent); border: 1px solid rgba(0,229,255,0.2); }
+  .mode-card.sentence .card-cta { background: rgba(124,58,237,0.1); color: #a78bfa; border: 1px solid rgba(124,58,237,0.2); }
+  .mode-card:hover .card-cta { transform: translateX(4px); }
+
+  .arrow { font-size: 1.2rem; transition: transform 0.2s; }
+  .mode-card:hover .arrow { transform: translateX(4px); }
+
+  /* Bottom status bar */
+  .status-bar {
+    margin-top: 48px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 28px;
+    display: flex; align-items: center; gap: 24px;
+    flex-wrap: wrap;
+  }
+  .status-item {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 0.82rem;
+    font-family: 'Space Mono', monospace;
+  }
+  .status-dot { width:8px; height:8px; border-radius:50%; }
+  .dot-green { background: var(--accent3); box-shadow: 0 0 6px var(--accent3); animation: glow 2s infinite; }
+  .dot-yellow { background: var(--warn); }
+  .dot-gray { background: var(--muted); }
+  @keyframes glow { 0%,100%{opacity:1} 50%{opacity:0.5} }
+  .status-label { color: var(--muted); }
+  .status-val { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+
+<header>
+  <a class="logo" href="/">
+    <div class="logo-icon">🤟</div>
+    <div class="logo-text">Sign<span>AR</span></div>
+  </a>
+  <a href="/" class="back-btn">← Back to Tests</a>
+</header>
+
+<div class="container">
+  <div class="page-header">
+    <h1>Choose Your Mode</h1>
+    <p>Select how you'd like to interact with the Sign Language Translator.</p>
+  </div>
+
+  <div class="cards-grid">
+
+    <!-- Letter Translator -->
+    <a href="/letter_translator" class="mode-card letter">
+      <div class="card-badge">MODE 01</div>
+      <div class="card-icon">🔤</div>
+      <div class="card-title">Letter Translator</div>
+      <div class="card-desc">
+        Real-time ASL alphabet recognition. Show hand signs and watch them transform into letters and words instantly.
+      </div>
+      <ul class="card-features">
+        <li><span class="feat-dot"></span>Full A–Z ASL alphabet support</li>
+        <li><span class="feat-dot"></span>Live camera feed with hand skeleton overlay</li>
+        <li><span class="feat-dot"></span>Gesture smoothing for stable recognition</li>
+        <li><span class="feat-dot"></span>Builds words & sentences in real-time</li>
+      </ul>
+      <div class="card-cta">
+        Open Letter Translator
+        <span class="arrow">→</span>
+      </div>
+    </a>
+
+    <!-- Sentence Translator -->
+    <a href="/sentence_translator" class="mode-card sentence">
+      <div class="card-badge">MODE 02</div>
+      <div class="card-icon">💬</div>
+      <div class="card-title">Sentence Translator</div>
+      <div class="card-desc">
+        Train custom gestures to represent full sentences. The AI learns your unique signs and speaks them aloud via text-to-speech.
+      </div>
+      <ul class="card-features">
+        <li><span class="feat-dot"></span>Train your own gesture → sentence mappings</li>
+        <li><span class="feat-dot"></span>LSTM neural network with attention mechanism</li>
+        <li><span class="feat-dot"></span>Text-to-speech output via pyttsx3</li>
+        <li><span class="feat-dot"></span>Unknown gestures prompt for new learning</li>
+      </ul>
+      <div class="card-cta">
+        Open Sentence Translator
+        <span class="arrow">→</span>
+      </div>
+    </a>
+
+  </div>
+
+  <!-- Status Bar -->
+  <div class="status-bar" id="statusBar">
+    <div class="status-item">
+      <div class="status-dot dot-green"></div>
+      <span class="status-label">System:</span>
+      <span class="status-val">Ready</span>
+    </div>
+    <div class="status-item" id="modelStatus">
+      <div class="status-dot dot-gray"></div>
+      <span class="status-label">Sentence Model:</span>
+      <span class="status-val" id="modelVal">Checking...</span>
+    </div>
+    <div class="status-item" id="dataStatus">
+      <div class="status-dot dot-gray"></div>
+      <span class="status-label">Training Data:</span>
+      <span class="status-val" id="dataVal">Checking...</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  async function checkStatus() {
+    try {
+      const r = await fetch('/api/model/status');
+      const d = await r.json();
+      const el = document.getElementById('modelVal');
+      const dot = document.querySelector('#modelStatus .status-dot');
+      if (d.trained) {
+        el.textContent = `Trained (${d.count} sentences, ${d.accuracy}% acc)`;
+        dot.className = 'status-dot dot-green';
+      } else {
+        el.textContent = 'Not trained yet';
+        dot.className = 'status-dot dot-yellow';
+      }
+    } catch(e) {
+      document.getElementById('modelVal').textContent = 'Unknown';
+    }
+    try {
+      const r = await fetch('/api/sentences/list');
+      const d = await r.json();
+      const el = document.getElementById('dataVal');
+      const dot = document.querySelector('#dataStatus .status-dot');
+      if (d.sentences && d.sentences.length > 0) {
+        el.textContent = `${d.sentences.length} sentences, ${d.total_samples} samples`;
+        dot.className = 'status-dot dot-green';
+      } else {
+        el.textContent = 'No data collected';
+        dot.className = 'status-dot dot-yellow';
+      }
+    } catch(e) {}
+  }
+  checkStatus();
+</script>
+</body>
+</html>

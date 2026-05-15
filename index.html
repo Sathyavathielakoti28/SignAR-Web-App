@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SignAR — ASL Translator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #050810;
+    --surface: #0d1117;
+    --card: #111827;
+    --border: #1e2d40;
+    --accent: #00e5ff;
+    --accent2: #7c3aed;
+    --accent3: #10b981;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --glow: 0 0 30px rgba(0,229,255,0.15);
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Animated background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Glowing orbs */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+    z-index: 0;
+  }
+  .orb1 { width:400px; height:400px; background:rgba(0,229,255,0.06); top:-100px; left:-100px; }
+  .orb2 { width:500px; height:500px; background:rgba(124,58,237,0.07); bottom:-150px; right:-100px; }
+  .orb3 { width:300px; height:300px; background:rgba(16,185,129,0.05); top:50%; left:50%; transform:translate(-50%,-50%); }
+
+  .container { position:relative; z-index:1; max-width:1100px; margin:0 auto; padding:40px 24px; }
+
+  /* Header */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 28px 40px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+    z-index: 10;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .logo-icon {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+  }
+  .logo-text { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.5px; }
+  .logo-text span { color: var(--accent); }
+
+  .help-btn {
+    background: transparent;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    padding: 10px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.85rem;
+    letter-spacing: 1px;
+    transition: all 0.2s;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .help-btn:hover { background: rgba(0,229,255,0.1); box-shadow: var(--glow); }
+
+  /* Hero */
+  .hero {
+    text-align: center;
+    padding: 64px 20px 40px;
+  }
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(0,229,255,0.08);
+    border: 1px solid rgba(0,229,255,0.2);
+    color: var(--accent);
+    padding: 6px 16px;
+    border-radius: 100px;
+    font-size: 0.75rem;
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 2px;
+    margin-bottom: 24px;
+  }
+  .hero-badge span { width:6px; height:6px; background:var(--accent); border-radius:50%; animation: pulse 1.5s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
+
+  .hero h1 {
+    font-size: clamp(2.5rem, 6vw, 4.5rem);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -2px;
+    margin-bottom: 20px;
+  }
+  .hero h1 .line2 { color: var(--accent); display: block; }
+  .hero p {
+    font-size: 1.1rem;
+    color: var(--muted);
+    max-width: 560px;
+    margin: 0 auto 48px;
+    line-height: 1.7;
+    font-weight: 400;
+  }
+
+  /* Test Panel */
+  .test-panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 36px;
+    margin-bottom: 32px;
+    position: relative;
+    overflow: hidden;
+  }
+  .test-panel::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2), transparent);
+  }
+  .panel-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .panel-title h2 { font-size: 1.3rem; font-weight: 700; }
+  .panel-title .icon {
+    width: 36px; height: 36px;
+    background: rgba(0,229,255,0.1);
+    border: 1px solid rgba(0,229,255,0.2);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+
+  .test-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+  .test-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px;
+    transition: all 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+  .test-item.testing { border-color: rgba(0,229,255,0.4); }
+  .test-item.ok { border-color: rgba(16,185,129,0.5); }
+  .test-item.fail { border-color: rgba(239,68,68,0.5); }
+
+  .test-item-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+  }
+  .test-name {
+    font-weight: 700;
+    font-size: 0.95rem;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .test-name .emoji { font-size: 18px; }
+  .test-status {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    padding: 3px 10px;
+    border-radius: 100px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+  .status-pending { background: rgba(100,116,139,0.2); color: var(--muted); }
+  .status-testing { background: rgba(0,229,255,0.15); color: var(--accent); animation: blink 1s infinite; }
+  .status-ok { background: rgba(16,185,129,0.15); color: var(--accent3); }
+  .status-fail { background: rgba(239,68,68,0.15); color: var(--danger); }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.5} }
+
+  .test-message {
+    font-size: 0.78rem;
+    color: var(--muted);
+    font-family: 'Space Mono', monospace;
+    line-height: 1.4;
+    margin-top: 6px;
+  }
+  .test-item.ok .test-message { color: rgba(16,185,129,0.8); }
+  .test-item.fail .test-message { color: rgba(239,68,68,0.7); }
+
+  /* Progress bar */
+  .test-progress {
+    height: 3px;
+    background: var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .test-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 3px;
+    transition: width 0.5s ease;
+    width: 0%;
+  }
+
+  /* Camera preview */
+  .camera-preview-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 16px;
+    position: relative;
+    height: 200px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #cameraPreview {
+    width: 100%; height: 100%;
+    object-fit: cover;
+    display: none;
+    transform: scaleX(-1);
+  }
+  .camera-placeholder {
+    text-align: center;
+    color: var(--muted);
+  }
+  .camera-placeholder .big-icon { font-size: 48px; display: block; margin-bottom: 8px; }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 14px 32px;
+    border-radius: 10px;
+    border: none;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-weight: 700;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+    text-decoration: none;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), #0088cc);
+    color: #000;
+    box-shadow: 0 0 0 0 rgba(0,229,255,0.4);
+  }
+  .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 8px 30px rgba(0,229,255,0.3); }
+  .btn-secondary {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text);
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-success {
+    background: linear-gradient(135deg, var(--accent3), #059669);
+    color: #fff;
+  }
+  .btn-success:hover { transform: translateY(-1px); box-shadow: 0 8px 25px rgba(16,185,129,0.3); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none !important; }
+
+  .action-row {
+    display: flex; align-items: center; gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  /* Result card */
+  .result-summary {
+    display: none;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 24px;
+    margin-top: 20px;
+  }
+  .result-summary.show { display: block; }
+  .result-summary.all-ok { border-color: rgba(16,185,129,0.5); background: rgba(16,185,129,0.05); }
+  .result-summary.has-fail { border-color: rgba(239,68,68,0.4); background: rgba(239,68,68,0.05); }
+
+  .result-title { font-size: 1.2rem; font-weight: 700; margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
+  .result-desc { color: var(--muted); font-size: 0.9rem; line-height: 1.6; margin-bottom: 16px; }
+
+  .fix-list {
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.2);
+    border-radius: 10px;
+    padding: 16px;
+    margin-top: 12px;
+  }
+  .fix-list h4 { color: var(--danger); font-size: 0.85rem; margin-bottom: 10px; font-family: 'Space Mono', monospace; }
+  .fix-item {
+    display: flex; align-items: flex-start; gap: 8px;
+    margin-bottom: 8px;
+    font-size: 0.85rem;
+  }
+  .fix-item code {
+    background: rgba(0,0,0,0.3);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: 'Space Mono', monospace;
+    color: var(--warn);
+    font-size: 0.78rem;
+  }
+
+  /* HELP MODAL */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.85);
+    z-index: 1000;
+    backdrop-filter: blur(8px);
+    overflow-y: auto;
+  }
+  .modal-overlay.open { display: flex; align-items: flex-start; justify-content: center; padding: 40px 20px; }
+  .modal {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    max-width: 780px;
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+    animation: slideUp 0.3s ease;
+  }
+  @keyframes slideUp { from{opacity:0;transform:translateY(30px)} to{opacity:1;transform:translateY(0)} }
+  .modal::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2), var(--accent3));
+  }
+  .modal-header {
+    padding: 32px 36px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .modal-header h2 { font-size: 1.6rem; font-weight: 800; }
+  .modal-close {
+    width: 36px; height: 36px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--muted);
+    font-size: 18px;
+    transition: all 0.2s;
+  }
+  .modal-close:hover { border-color: var(--danger); color: var(--danger); }
+  .modal-body { padding: 32px 36px; }
+
+  .help-section { margin-bottom: 32px; }
+  .help-section h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--accent);
+    font-family: 'Space Mono', monospace;
+    letter-spacing: 1px;
+    margin-bottom: 16px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .help-step {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 14px;
+    padding: 16px;
+    background: var(--surface);
+    border-radius: 12px;
+    border-left: 3px solid var(--border);
+    transition: border-color 0.2s;
+  }
+  .help-step:hover { border-left-color: var(--accent); }
+  .step-num {
+    width: 28px; height: 28px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #000;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+  .step-content h4 { font-size: 0.95rem; font-weight: 700; margin-bottom: 4px; }
+  .step-content p { font-size: 0.85rem; color: var(--muted); line-height: 1.5; }
+  .step-content code {
+    background: rgba(0,0,0,0.3);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-family: 'Space Mono', monospace;
+    color: var(--warn);
+    font-size: 0.78rem;
+  }
+
+  .tip-box {
+    background: rgba(0,229,255,0.06);
+    border: 1px solid rgba(0,229,255,0.15);
+    border-radius: 12px;
+    padding: 16px 20px;
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: var(--text);
+    margin-top: 8px;
+  }
+  .tip-box strong { color: var(--accent); }
+
+  /* File requirements box */
+  .file-req {
+    background: rgba(124,58,237,0.08);
+    border: 1px solid rgba(124,58,237,0.2);
+    border-radius: 12px;
+    padding: 16px 20px;
+    font-size: 0.85rem;
+    font-family: 'Space Mono', monospace;
+  }
+  .file-req h4 { color: #a78bfa; margin-bottom: 10px; font-size: 0.8rem; letter-spacing: 1px; }
+  .file-req ul { list-style: none; }
+  .file-req li { padding: 4px 0; color: var(--muted); }
+  .file-req li::before { content: '📁 '; }
+  .file-req li span { color: var(--warn); }
+  
+  footer {
+    text-align: center;
+    padding: 32px;
+    color: var(--muted);
+    font-size: 0.8rem;
+    font-family: 'Space Mono', monospace;
+    border-top: 1px solid var(--border);
+    margin-top: 40px;
+  }
+</style>
+</head>
+<body>
+
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="orb orb3"></div>
+
+<!-- Header -->
+<header>
+  <div class="logo">
+    <div class="logo-icon">🤟</div>
+    <div class="logo-text">Sign<span>AR</span></div>
+  </div>
+  <button class="help-btn" onclick="openHelp()">
+    <span>❓</span> HELP &amp; GUIDE
+  </button>
+</header>
+
+<div class="container">
+
+  <!-- Hero -->
+  <div class="hero">
+    <div class="hero-badge"><span></span>SYSTEM DIAGNOSTICS</div>
+    <h1>Before we begin,<br><span class="line2">let's check your system</span></h1>
+    <p>We'll verify that your camera, microphone, and all required libraries are properly installed and working.</p>
+  </div>
+
+  <!-- Test Panel -->
+  <div class="test-panel">
+    <div class="panel-title">
+      <div class="icon">🔬</div>
+      <h2>System Dependency Check</h2>
+    </div>
+
+    <div class="test-progress">
+      <div class="test-progress-bar" id="progressBar"></div>
+    </div>
+
+    <!-- Dependencies -->
+    <div class="panel-title" style="margin-bottom:12px">
+      <h3 style="font-size:1rem;color:var(--muted);font-weight:600">Python Libraries</h3>
+    </div>
+    <div class="test-grid" id="depsGrid">
+      <!-- filled by JS -->
+    </div>
+
+    <!-- Camera + MediaPipe row -->
+    <div class="panel-title" style="margin-bottom:12px;margin-top:8px">
+      <h3 style="font-size:1rem;color:var(--muted);font-weight:600">Hardware & Runtime</h3>
+    </div>
+    <div class="test-grid" id="hardwareGrid">
+      <!-- filled by JS -->
+    </div>
+
+    <!-- Camera preview -->
+    <div class="camera-preview-wrap">
+      <video id="cameraPreview" autoplay muted playsinline></video>
+      <div class="camera-placeholder" id="camPlaceholder">
+        <span class="big-icon">📷</span>
+        <p>Camera preview will appear here</p>
+      </div>
+    </div>
+
+    <div class="action-row">
+      <button class="btn btn-primary" id="runTestsBtn" onclick="runAllTests()">
+        ▶ Run System Tests
+      </button>
+      <button class="btn btn-secondary" id="retryBtn" onclick="runAllTests()" style="display:none">
+        🔄 Re-run Tests
+      </button>
+    </div>
+
+    <div class="result-summary" id="resultSummary">
+      <div class="result-title" id="resultTitle"></div>
+      <div class="result-desc" id="resultDesc"></div>
+      <div class="fix-list" id="fixList" style="display:none">
+        <h4>⚡ HOW TO FIX</h4>
+        <div id="fixItems"></div>
+      </div>
+      <div style="margin-top:20px" id="proceedSection" style="display:none">
+        <a href="/dashboard" class="btn btn-success">
+          🚀 Proceed to Translator →
+        </a>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- HELP MODAL -->
+<div class="modal-overlay" id="helpModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>📘 Complete Guide</h2>
+      <div class="modal-close" onclick="closeHelp()">✕</div>
+    </div>
+    <div class="modal-body">
+
+      <div class="help-section">
+        <h3>📋 OVERVIEW</h3>
+        <p style="color:var(--muted);font-size:0.9rem;line-height:1.7;margin-bottom:16px">
+          SignAR is an AI-powered ASL (American Sign Language) translator that uses your webcam and MediaPipe to detect hand gestures in real-time. It supports two modes: <strong style="color:var(--text)">Letter Translation</strong> and <strong style="color:var(--text)">Sentence Translation</strong>.
+        </p>
+        <div class="file-req">
+          <h4>📁 REQUIRED FILES (place in app folder)</h4>
+          <ul>
+            <li><span>hand_landmarker.task</span> — MediaPipe hand model</li>
+            <li><span>sign_language_translator.py</span> — Letter mode backend</li>
+            <li><span>sentence_engine.py</span> — Sentence training backend</li>
+            <li><span>sentence_translator.py</span> — Sentence recognition backend</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <h3>🔧 STEP 1 — INSTALLATION</h3>
+        <div class="help-step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h4>Install Python 3.8+</h4>
+            <p>Download from <strong>python.org</strong> and ensure it's added to your system PATH during installation.</p>
+          </div>
+        </div>
+        <div class="help-step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h4>Install required libraries</h4>
+            <p>Open a terminal in the project folder and run:</p>
+            <p style="margin-top:6px"><code>pip install flask flask-cors opencv-python mediapipe numpy scikit-learn pyttsx3 torch</code></p>
+          </div>
+        </div>
+        <div class="help-step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h4>Start the web app</h4>
+            <p>In the project folder, run: <code>python app.py</code></p>
+            <p style="margin-top:4px">Then open <code>http://localhost:5000</code> in your browser.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <h3>🔤 STEP 2 — LETTER TRANSLATOR</h3>
+        <div class="help-step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h4>Open Letter Translator from Dashboard</h4>
+            <p>Click "Letter Translator" — a camera window will open on your desktop.</p>
+          </div>
+        </div>
+        <div class="help-step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h4>Show ASL hand signs</h4>
+            <p>Hold each letter sign steady for ~1.5 seconds in front of the camera. Recognized letters appear on screen and build into a word/sentence.</p>
+          </div>
+        </div>
+        <div class="help-step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h4>Controls</h4>
+            <p><code>C</code> = Clear text &nbsp;|&nbsp; <code>Q</code> = Quit the window</p>
+          </div>
+        </div>
+        <div class="tip-box">
+          <strong>💡 Tips:</strong> Good lighting is essential. Keep your hand centered in frame, about 1–2 feet from the camera. Plain backgrounds improve accuracy significantly.
+        </div>
+      </div>
+
+      <div class="help-section">
+        <h3>💬 STEP 3 — SENTENCE TRANSLATOR (Train)</h3>
+        <div class="help-step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h4>Add your sentences</h4>
+            <p>Type the sentences you want to teach the system. Each sentence needs a unique gesture/sign you'll perform.</p>
+          </div>
+        </div>
+        <div class="help-step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h4>Record gesture samples</h4>
+            <p>A camera window opens. Press <code>R</code> to start recording your gesture for the displayed sentence. Press <code>Space</code> when done. Repeat 8 times per sentence for best results.</p>
+          </div>
+        </div>
+        <div class="help-step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h4>Train the model</h4>
+            <p>After collecting samples, click "Train Model". Training takes 1–3 minutes. Progress is shown in real-time.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="help-section">
+        <h3>🧪 STEP 4 — SENTENCE TRANSLATOR (Test)</h3>
+        <div class="help-step">
+          <div class="step-num">1</div>
+          <div class="step-content">
+            <h4>Launch the recognizer</h4>
+            <p>Click "Test / Recognize" from the Sentence Translator page. A live camera window opens.</p>
+          </div>
+        </div>
+        <div class="help-step">
+          <div class="step-num">2</div>
+          <div class="step-content">
+            <h4>Perform your gesture</h4>
+            <p>Show the trained gesture to the camera. If recognized, the sentence is displayed and spoken aloud via text-to-speech!</p>
+          </div>
+        </div>
+        <div class="help-step">
+          <div class="step-num">3</div>
+          <div class="step-content">
+            <h4>Unknown gesture?</h4>
+            <p>If the system doesn't recognize a gesture, it will prompt you to teach it by providing the sentence label for training.</p>
+          </div>
+        </div>
+        <div class="tip-box">
+          <strong>🎯 For best accuracy:</strong> Collect at least 8 samples per sentence. Make each gesture clearly distinct from others. Consistent hand position and good lighting are key.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<footer>SignAR — ASL Translator &nbsp;|&nbsp; Built with MediaPipe + PyTorch &nbsp;|&nbsp; 🤟</footer>
+
+<script>
+const tests = {
+  deps: { title: 'Dependencies', emoji: '📦', message: 'Checking libraries...', status: 'pending' },
+  camera: { title: 'Camera', emoji: '📷', message: 'Testing webcam access...', status: 'pending' },
+  mediapipe: { title: 'MediaPipe', emoji: '🖐️', message: 'Verifying hand detection...', status: 'pending' },
+  tts: { title: 'Text-to-Speech', emoji: '🔊', message: 'Checking TTS engine...', status: 'pending' },
+};
+let testResults = {};
+let cameraStream = null;
+
+function renderGrid(id, items) {
+  const grid = document.getElementById(id);
+  grid.innerHTML = '';
+  items.forEach(([key, t]) => {
+    const item = document.createElement('div');
+    item.className = `test-item ${t.status === 'ok' ? 'ok' : t.status === 'fail' ? 'fail' : t.status === 'testing' ? 'testing' : ''}`;
+    item.id = `test-${key}`;
+    item.innerHTML = `
+      <div class="test-item-header">
+        <div class="test-name"><span class="emoji">${t.emoji}</span>${t.title}</div>
+        <div class="test-status status-${t.status === 'ok' ? 'ok' : t.status === 'fail' ? 'fail' : t.status === 'testing' ? 'testing' : 'pending'}">
+          ${t.status === 'ok' ? 'PASS' : t.status === 'fail' ? 'FAIL' : t.status === 'testing' ? 'TESTING' : 'IDLE'}
+        </div>
+      </div>
+      <div class="test-message">${t.message}</div>`;
+    grid.appendChild(item);
+  });
+}
+
+function initGrids() {
+  renderGrid('depsGrid', [['deps', tests.deps]]);
+  renderGrid('hardwareGrid', [
+    ['camera', tests.camera],
+    ['mediapipe', tests.mediapipe],
+    ['tts', tests.tts],
+  ]);
+}
+
+function updateTest(key, status, message) {
+  tests[key].status = status;
+  tests[key].message = message;
+  const el = document.getElementById(`test-${key}`);
+  if (!el) return;
+  el.className = `test-item ${status === 'ok' ? 'ok' : status === 'fail' ? 'fail' : status === 'testing' ? 'testing' : ''}`;
+  el.querySelector('.test-status').className = `test-status status-${status === 'ok' ? 'ok' : status === 'fail' ? 'fail' : status === 'testing' ? 'testing' : 'pending'}`;
+  el.querySelector('.test-status').textContent = status === 'ok' ? 'PASS' : status === 'fail' ? 'FAIL' : status === 'testing' ? 'TESTING...' : 'IDLE';
+  el.querySelector('.test-message').textContent = message;
+}
+
+function updateProgress(pct) {
+  document.getElementById('progressBar').style.width = pct + '%';
+}
+
+async function startCameraPreview() {
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+    const vid = document.getElementById('cameraPreview');
+    vid.srcObject = cameraStream;
+    vid.style.display = 'block';
+    document.getElementById('camPlaceholder').style.display = 'none';
+  } catch(e) {}
+}
+
+async function runAllTests() {
+  document.getElementById('runTestsBtn').disabled = true;
+  document.getElementById('retryBtn').style.display = 'none';
+  document.getElementById('resultSummary').className = 'result-summary';
+  testResults = {};
+  
+  // Reset
+  Object.keys(tests).forEach(k => { tests[k].status = 'pending'; tests[k].message = 'Waiting...'; });
+  initGrids();
+  updateProgress(0);
+
+  // Start camera preview
+  startCameraPreview();
+
+  // Test 1: Dependencies
+  updateTest('deps', 'testing', 'Importing Python packages...');
+  updateProgress(10);
+  try {
+    const r = await fetch('/api/test/dependencies');
+    const data = await r.json();
+    testResults.deps = data;
+    if (data.all_ok) {
+      updateTest('deps', 'ok', `All ${Object.keys(data.results).length} packages installed ✓`);
+    } else {
+      const missing = Object.entries(data.results).filter(([k,v]) => v.status !== 'ok').map(([k]) => k);
+      updateTest('deps', 'fail', `Missing: ${missing.join(', ')}`);
+    }
+  } catch(e) {
+    updateTest('deps', 'fail', 'Server error: ' + e.message);
+  }
+  updateProgress(30);
+
+  // Test 2: Camera
+  updateTest('camera', 'testing', 'Accessing webcam...');
+  try {
+    const r = await fetch('/api/test/camera');
+    const data = await r.json();
+    testResults.camera = data;
+    updateTest('camera', data.status, data.message);
+  } catch(e) {
+    updateTest('camera', 'fail', 'Server error: ' + e.message);
+  }
+  updateProgress(55);
+
+  // Test 3: MediaPipe
+  updateTest('mediapipe', 'testing', 'Loading hand_landmarker.task...');
+  try {
+    const r = await fetch('/api/test/mediapipe');
+    const data = await r.json();
+    testResults.mediapipe = data;
+    updateTest('mediapipe', data.status, data.message);
+  } catch(e) {
+    updateTest('mediapipe', 'fail', 'Server error: ' + e.message);
+  }
+  updateProgress(80);
+
+  // Test 4: TTS
+  updateTest('tts', 'testing', 'Initializing TTS engine...');
+  try {
+    const r = await fetch('/api/test/tts');
+    const data = await r.json();
+    testResults.tts = data;
+    updateTest('tts', data.status, data.message);
+  } catch(e) {
+    updateTest('tts', 'fail', 'Server error: ' + e.message);
+  }
+  updateProgress(100);
+
+  showSummary();
+  document.getElementById('runTestsBtn').disabled = false;
+  document.getElementById('retryBtn').style.display = 'inline-flex';
+}
+
+function showSummary() {
+  const allPassed = Object.values(testResults).every(r => r.status === 'ok');
+  const summary = document.getElementById('resultSummary');
+  const title = document.getElementById('resultTitle');
+  const desc = document.getElementById('resultDesc');
+  const fixList = document.getElementById('fixList');
+  const fixItems = document.getElementById('fixItems');
+  const proceed = document.getElementById('proceedSection');
+
+  summary.className = `result-summary show ${allPassed ? 'all-ok' : 'has-fail'}`;
+
+  if (allPassed) {
+    title.innerHTML = '✅ All systems ready!';
+    desc.textContent = 'Your environment is fully configured. You can now proceed to the Sign Language Translator!';
+    fixList.style.display = 'none';
+    proceed.style.display = 'block';
+  } else {
+    title.innerHTML = '⚠️ Some checks failed';
+    desc.textContent = 'Fix the issues below before proceeding. Re-run the tests after making changes.';
+    proceed.style.display = 'none';
+    fixList.style.display = 'block';
+
+    const fixes = [];
+    if (testResults.deps && !testResults.deps.all_ok) {
+      const missing = Object.entries(testResults.deps.results || {})
+        .filter(([k,v]) => v.status !== 'ok').map(([k]) => k);
+      if (missing.length) {
+        fixes.push({
+          label: 'Install missing Python packages:',
+          code: `pip install ${missing.join(' ')}`
+        });
+      }
+    }
+    if (testResults.camera && testResults.camera.status === 'fail') {
+      fixes.push({
+        label: 'Camera issue: Make sure your webcam is connected and not used by another app.',
+        code: null
+      });
+    }
+    if (testResults.mediapipe && testResults.mediapipe.status === 'fail') {
+      fixes.push({
+        label: 'Place hand_landmarker.task in your app folder, or reinstall MediaPipe:',
+        code: 'pip install mediapipe --upgrade'
+      });
+    }
+    if (testResults.tts && testResults.tts.status === 'fail') {
+      fixes.push({
+        label: 'TTS fix (Linux):',
+        code: 'sudo apt-get install espeak'
+      });
+      fixes.push({ label: 'Or reinstall pyttsx3:', code: 'pip install pyttsx3 --upgrade' });
+    }
+
+    fixItems.innerHTML = fixes.map(f => `
+      <div class="fix-item">
+        <span>→</span>
+        <div>${f.label} ${f.code ? `<br><code>${f.code}</code>` : ''}</div>
+      </div>`).join('');
+  }
+}
+
+function openHelp() {
+  document.getElementById('helpModal').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+function closeHelp() {
+  document.getElementById('helpModal').classList.remove('open');
+  document.body.style.overflow = '';
+}
+document.getElementById('helpModal').addEventListener('click', function(e) {
+  if (e.target === this) closeHelp();
+});
+
+// Init
+initGrids();
+</script>
+</body>
+</html>

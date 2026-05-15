@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SignAR — Sentence Translator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#050810; --surface:#0d1117; --card:#111827; --border:#1e2d40;
+    --accent:#00e5ff; --accent2:#7c3aed; --accent3:#10b981;
+    --warn:#f59e0b; --danger:#ef4444; --text:#e2e8f0; --muted:#64748b;
+  }
+  * { margin:0;padding:0;box-sizing:border-box; }
+  body { background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;min-height:100vh;overflow-x:hidden; }
+  body::before {
+    content:'';position:fixed;inset:0;
+    background-image:linear-gradient(rgba(0,229,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,229,255,0.03) 1px,transparent 1px);
+    background-size:60px 60px;pointer-events:none;z-index:0;
+  }
+  .orb { position:fixed;border-radius:50%;filter:blur(80px);pointer-events:none;z-index:0; }
+  .orb1 { width:400px;height:400px;background:rgba(124,58,237,0.07);top:-100px;right:-100px; }
+  .orb2 { width:350px;height:350px;background:rgba(16,185,129,0.05);bottom:-100px;left:-80px; }
+  
+  header {
+    display:flex;align-items:center;justify-content:space-between;
+    padding:24px 40px;border-bottom:1px solid var(--border);position:relative;z-index:10;
+  }
+  .logo { display:flex;align-items:center;gap:12px;text-decoration:none;color:var(--text); }
+  .logo-icon { width:40px;height:40px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px; }
+  .logo-text { font-size:1.4rem;font-weight:800; }
+  .logo-text span { color:var(--accent); }
+  .back-btn { display:flex;align-items:center;gap:8px;background:transparent;border:1px solid var(--border);color:var(--muted);padding:8px 18px;border-radius:8px;cursor:pointer;font-family:'Space Mono',monospace;font-size:0.8rem;text-decoration:none;transition:all 0.2s; }
+  .back-btn:hover { border-color:var(--accent);color:var(--accent); }
+
+  .container { position:relative;z-index:1;max-width:960px;margin:0 auto;padding:48px 24px; }
+  .page-badge { display:inline-flex;align-items:center;gap:6px;background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.2);color:#a78bfa;padding:5px 14px;border-radius:100px;font-size:0.7rem;font-family:'Space Mono',monospace;letter-spacing:2px;margin-bottom:16px; }
+  .page-header { margin-bottom:40px; }
+  .page-header h1 { font-size:2.8rem;font-weight:800;letter-spacing:-1.5px;margin-bottom:8px; }
+  .page-header p { color:var(--muted);font-size:0.95rem;line-height:1.7; }
+
+  /* Mode tabs */
+  .mode-tabs {
+    display:flex;gap:8px;margin-bottom:32px;
+    background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:6px;
+  }
+  .mode-tab {
+    flex:1;padding:14px 20px;border-radius:10px;border:none;cursor:pointer;font-family:'Syne',sans-serif;
+    font-weight:700;font-size:0.9rem;transition:all 0.2s;text-align:center;
+    background:transparent;color:var(--muted);
+  }
+  .mode-tab.active { background:var(--card);color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,0.3); }
+  .mode-tab.train.active { color:#a78bfa; }
+  .mode-tab.test.active { color:var(--accent3); }
+
+  .tab-pane { display:none; }
+  .tab-pane.active { display:block; }
+
+  /* Cards */
+  .card { background:var(--card);border:1px solid var(--border);border-radius:20px;padding:32px;margin-bottom:20px;position:relative;overflow:hidden; }
+  .card::before { content:'';position:absolute;top:0;left:0;right:0;height:2px; }
+  .train-card::before { background:linear-gradient(90deg,#7c3aed,transparent); }
+  .test-card::before { background:linear-gradient(90deg,var(--accent3),transparent); }
+
+  .card-header { display:flex;align-items:center;gap:12px;margin-bottom:24px; }
+  .card-icon { width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px; }
+  .train-icon { background:rgba(124,58,237,0.1);border:1px solid rgba(124,58,237,0.2); }
+  .test-icon { background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2); }
+  .card-title { font-size:1.2rem;font-weight:800; }
+  .card-sub { font-size:0.82rem;color:var(--muted);margin-top:2px; }
+
+  /* Sentence input area */
+  .sentence-list { margin-bottom:20px; }
+  .sentence-item {
+    display:flex;align-items:center;gap:10px;background:var(--surface);
+    border:1px solid var(--border);border-radius:10px;padding:12px 16px;margin-bottom:8px;
+    animation: slideIn 0.2s ease;
+  }
+  @keyframes slideIn { from{opacity:0;transform:translateY(-8px)} to{opacity:1;transform:translateY(0)} }
+  .s-num { width:24px;height:24px;background:rgba(124,58,237,0.15);border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:0.7rem;color:#a78bfa;font-weight:700;flex-shrink:0; }
+  .s-text { flex:1;font-size:0.9rem; }
+  .s-badge { background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);color:var(--accent3);font-size:0.65rem;padding:2px 8px;border-radius:100px;font-family:'Space Mono',monospace; }
+  .s-badge.pending { background:rgba(245,158,11,0.1);border-color:rgba(245,158,11,0.2);color:var(--warn); }
+  .s-del { background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:16px;padding:4px;transition:color 0.2s;flex-shrink:0; }
+  .s-del:hover { color:var(--danger); }
+  .add-row { display:flex;gap:10px;margin-bottom:8px; }
+  .sentence-input {
+    flex:1;background:var(--surface);border:1px solid var(--border);border-radius:10px;
+    padding:12px 16px;color:var(--text);font-family:'Syne',sans-serif;font-size:0.9rem;
+    outline:none;transition:border-color 0.2s;
+  }
+  .sentence-input:focus { border-color:#7c3aed; }
+  .sentence-input::placeholder { color:var(--muted); }
+
+  /* Buttons */
+  .btn { display:inline-flex;align-items:center;gap:8px;padding:13px 28px;border-radius:10px;border:none;cursor:pointer;font-family:'Syne',sans-serif;font-weight:700;font-size:0.9rem;transition:all 0.2s;text-decoration:none; }
+  .btn-add { background:rgba(124,58,237,0.15);border:1px solid rgba(124,58,237,0.3);color:#a78bfa; }
+  .btn-add:hover { background:rgba(124,58,237,0.25); }
+  .btn-collect { background:linear-gradient(135deg,#7c3aed,#6d28d9);color:#fff; }
+  .btn-collect:hover { transform:translateY(-1px);box-shadow:0 8px 25px rgba(124,58,237,0.3); }
+  .btn-train { background:linear-gradient(135deg,var(--warn),#d97706);color:#000; }
+  .btn-train:hover { transform:translateY(-1px);box-shadow:0 8px 25px rgba(245,158,11,0.3); }
+  .btn-launch-test { background:linear-gradient(135deg,var(--accent3),#059669);color:#fff; }
+  .btn-launch-test:hover { transform:translateY(-1px);box-shadow:0 8px 25px rgba(16,185,129,0.3); }
+  .btn-secondary { background:transparent;border:1px solid var(--border);color:var(--muted); }
+  .btn-secondary:hover { border-color:var(--accent);color:var(--accent); }
+  .btn:disabled { opacity:0.4;cursor:not-allowed;transform:none!important; }
+
+  .action-row { display:flex;gap:12px;flex-wrap:wrap;margin-top:16px; }
+
+  /* Training log */
+  .training-log {
+    background:var(--surface);border:1px solid var(--border);border-radius:12px;
+    padding:16px;height:220px;overflow-y:auto;font-family:'Space Mono',monospace;
+    font-size:0.75rem;color:var(--muted);line-height:1.6;display:none;margin-top:16px;
+  }
+  .training-log.show { display:block; }
+  .log-line { padding:2px 0; }
+  .log-line.epoch { color:var(--accent); }
+  .log-line.done { color:var(--accent3); font-weight:700; }
+  .log-line.err { color:var(--danger); }
+
+  /* Progress */
+  .training-progress {
+    background:var(--border);border-radius:3px;height:4px;overflow:hidden;margin-top:12px;display:none;
+  }
+  .training-progress.show { display:block; }
+  .training-progress-bar {
+    height:100%;background:linear-gradient(90deg,#7c3aed,var(--warn));
+    border-radius:3px;width:0%;transition:width 0.5s;animation:progAnim 2s linear infinite;
+  }
+  @keyframes progAnim { 0%{background-position:0%} 100%{background-position:200%} }
+
+  /* Trained sentences panel */
+  .trained-panel { background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;margin-bottom:20px; }
+  .trained-header { display:flex;align-items:center;justify-content:space-between;margin-bottom:16px; }
+  .trained-title { font-weight:700;font-size:0.95rem;display:flex;align-items:center;gap:8px; }
+  .trained-count { background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);color:var(--accent3);padding:3px 10px;border-radius:100px;font-size:0.7rem;font-family:'Space Mono',monospace; }
+  .trained-list { display:flex;flex-direction:column;gap:8px;max-height:200px;overflow-y:auto; }
+  .trained-item { background:var(--card);border:1px solid var(--border);border-radius:8px;padding:10px 14px;font-size:0.85rem;display:flex;align-items:center;gap:10px; }
+  .trained-item .ti-icon { font-size:16px; }
+  .trained-item .ti-text { flex:1; }
+  .trained-item .ti-meta { font-size:0.7rem;color:var(--muted);font-family:'Space Mono',monospace; }
+
+  /* Unknown gesture area (test mode) */
+  .unknown-card {
+    background:rgba(245,158,11,0.05);border:1px solid rgba(245,158,11,0.2);
+    border-radius:14px;padding:24px;text-align:center;display:none;margin-top:20px;
+  }
+  .unknown-card.show { display:block;animation:slideIn 0.3s ease; }
+  .unknown-emoji { font-size:48px;display:block;margin-bottom:12px; }
+  .unknown-title { font-size:1.2rem;font-weight:800;color:var(--warn);margin-bottom:8px; }
+  .unknown-desc { color:var(--muted);font-size:0.85rem;margin-bottom:20px; }
+
+  /* Accuracy badge */
+  .acc-badge { background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2);border-radius:10px;padding:12px 20px;display:inline-flex;align-items:center;gap:10px; }
+  .acc-value { font-size:1.8rem;font-weight:800;color:var(--accent3); }
+  .acc-label { font-size:0.75rem;color:var(--muted);font-family:'Space Mono',monospace; }
+
+  /* Info box */
+  .info-box { background:rgba(0,229,255,0.05);border:1px solid rgba(0,229,255,0.15);border-radius:10px;padding:14px 18px;font-size:0.82rem;line-height:1.6;color:var(--muted);margin-top:16px; }
+  .info-box strong { color:var(--accent); }
+
+  /* Toast */
+  .toast { position:fixed;bottom:32px;right:32px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px 24px;font-size:0.9rem;z-index:100;display:none;box-shadow:0 8px 30px rgba(0,0,0,0.5);max-width:400px; }
+  .toast.show { display:flex;align-items:flex-start;gap:12px;animation:toastIn 0.3s ease; }
+  .toast.success { border-color:rgba(16,185,129,0.4);background:rgba(16,185,129,0.05); }
+  .toast.error { border-color:rgba(239,68,68,0.4);background:rgba(239,68,68,0.05); }
+  .toast.info { border-color:rgba(0,229,255,0.3);background:rgba(0,229,255,0.05); }
+  @keyframes toastIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+</style>
+</head>
+<body>
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+
+<header>
+  <a class="logo" href="/"><div class="logo-icon">🤟</div><div class="logo-text">Sign<span>AR</span></div></a>
+  <a href="/dashboard" class="back-btn">← Dashboard</a>
+</header>
+
+<div class="container">
+  <div class="page-header">
+    <div class="page-badge">MODE 02 — SENTENCE TRANSLATOR</div>
+    <h1>Sentence Translator</h1>
+    <p>Train custom gesture → sentence mappings or test your trained model for real-time recognition.</p>
+  </div>
+
+  <!-- Mode Tabs -->
+  <div class="mode-tabs">
+    <button class="mode-tab train active" onclick="switchTab('train')">🧠 Train New Gesture</button>
+    <button class="mode-tab test" onclick="switchTab('test')">🧪 Test / Recognize</button>
+  </div>
+
+  <!-- TRAIN TAB -->
+  <div class="tab-pane active" id="tab-train">
+
+    <!-- Step 1: Add sentences -->
+    <div class="card train-card">
+      <div class="card-header">
+        <div class="card-icon train-icon">📝</div>
+        <div>
+          <div class="card-title">Step 1 — Add Your Sentences</div>
+          <div class="card-sub">Enter sentences you want to teach. Each needs a unique hand gesture.</div>
+        </div>
+      </div>
+
+      <div class="sentence-list" id="sentenceList"></div>
+
+      <div class="add-row">
+        <input class="sentence-input" id="newSentenceInput" placeholder='e.g. "Hello, how are you?"'
+          onkeydown="if(event.key==='Enter') addSentence()">
+        <button class="btn btn-add" onclick="addSentence()">+ Add</button>
+      </div>
+
+      <div class="info-box" style="margin-top:12px">
+        <strong>Tip:</strong> Add 2–10 distinct sentences. Each sentence needs its own unique gesture. More samples per sentence = better accuracy.
+      </div>
+    </div>
+
+    <!-- Step 2: Collect samples -->
+    <div class="card train-card">
+      <div class="card-header">
+        <div class="card-icon train-icon">🎥</div>
+        <div>
+          <div class="card-title">Step 2 — Record Gesture Samples</div>
+          <div class="card-sub">A camera window will open. Show your gesture 8 times for each sentence.</div>
+        </div>
+      </div>
+      <p style="color:var(--muted);font-size:0.85rem;line-height:1.7;margin-bottom:20px">
+        For each sentence, a camera window opens. Press <strong style="color:#a78bfa">R</strong> to start recording your gesture, then press <strong style="color:#a78bfa">SPACE</strong> when done. Repeat 8 times. The system collects the hand landmark sequences as training data.
+      </p>
+      <div class="action-row">
+        <button class="btn btn-collect" id="collectBtn" onclick="startCollection()">
+          🎥 Start Recording Gestures
+        </button>
+      </div>
+      <div id="collectStatus" style="margin-top:12px;font-size:0.82rem;color:var(--muted);display:none"></div>
+    </div>
+
+    <!-- Step 3: Train -->
+    <div class="card train-card">
+      <div class="card-header">
+        <div class="card-icon train-icon">⚡</div>
+        <div>
+          <div class="card-title">Step 3 — Train the Model</div>
+          <div class="card-sub">LSTM neural network trains on your collected samples. Takes 1–3 minutes.</div>
+        </div>
+      </div>
+      <div class="action-row">
+        <button class="btn btn-train" id="trainBtn" onclick="startTraining()">
+          ⚡ Train Model
+        </button>
+        <button class="btn btn-secondary" onclick="checkTrainStatus()">↻ Check Status</button>
+      </div>
+
+      <div class="training-progress" id="trainProgress">
+        <div class="training-progress-bar" id="trainProgressBar" style="width:100%"></div>
+      </div>
+      <div class="training-log" id="trainingLog"></div>
+
+      <div id="trainResult" style="margin-top:16px;display:none"></div>
+    </div>
+
+  </div>
+
+  <!-- TEST TAB -->
+  <div class="tab-pane" id="tab-test">
+
+    <!-- Model status -->
+    <div class="card test-card" id="modelStatusCard">
+      <div class="card-header">
+        <div class="card-icon test-icon">🤖</div>
+        <div>
+          <div class="card-title">Model Status</div>
+          <div class="card-sub" id="modelStatusSub">Checking trained model...</div>
+        </div>
+      </div>
+      <div id="modelStatusContent">
+        <div style="color:var(--muted);font-size:0.85rem">Loading...</div>
+      </div>
+    </div>
+
+    <!-- Trained sentences -->
+    <div class="trained-panel" id="trainedPanel" style="display:none">
+      <div class="trained-header">
+        <div class="trained-title">💬 Trained Sentences <span class="trained-count" id="trainedCount">0</span></div>
+      </div>
+      <div class="trained-list" id="trainedList"></div>
+    </div>
+
+    <!-- Launch recognizer -->
+    <div class="card test-card">
+      <div class="card-header">
+        <div class="card-icon test-icon">🚀</div>
+        <div>
+          <div class="card-title">Launch Sentence Recognizer</div>
+          <div class="card-sub">Opens a camera window that recognizes gestures and speaks sentences aloud.</div>
+        </div>
+      </div>
+      <p style="color:var(--muted);font-size:0.85rem;line-height:1.7;margin-bottom:20px">
+        Show your trained gesture to the camera. The AI will recognize it and display + speak the corresponding sentence. If the gesture is unknown, it will ask you to label it.
+      </p>
+      <div class="action-row">
+        <button class="btn btn-launch-test" id="launchTestBtn" onclick="launchTest()">
+          🚀 Launch Sentence Recognizer
+        </button>
+      </div>
+      <div id="testStatus" style="margin-top:12px;font-size:0.82rem;color:var(--muted);display:none"></div>
+    </div>
+
+    <!-- Unknown gesture handler (simulated UI) -->
+    <div class="unknown-card" id="unknownCard">
+      <span class="unknown-emoji">🤔</span>
+      <div class="unknown-title">OOPS!! I don't know this gesture</div>
+      <div class="unknown-desc">Let me know the sentence for this sign, and I'll learn it!</div>
+      <div class="add-row" style="max-width:480px;margin:0 auto">
+        <input class="sentence-input" id="unknownSentenceInput" placeholder="Enter the sentence for this gesture...">
+        <button class="btn btn-collect" onclick="teachUnknown()">Teach Me!</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let sentences = [];
+let trainingInterval = null;
+
+// ── Tab switching ──────────────────────────────────
+function switchTab(tab) {
+  document.querySelectorAll('.mode-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+  document.querySelector(`.mode-tab.${tab}`).classList.add('active');
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  if (tab === 'test') loadModelStatus();
+}
+
+// ── Sentence management ────────────────────────────
+function renderSentences() {
+  const list = document.getElementById('sentenceList');
+  list.innerHTML = sentences.length === 0
+    ? `<div style="text-align:center;padding:20px;color:var(--muted);font-size:0.85rem">No sentences added yet. Add some above!</div>`
+    : sentences.map((s, i) => `
+      <div class="sentence-item">
+        <div class="s-num">${i+1}</div>
+        <div class="s-text">${s}</div>
+        <div class="s-badge pending">PENDING</div>
+        <button class="s-del" onclick="removeSentence(${i})">✕</button>
+      </div>`).join('');
+}
+
+function addSentence() {
+  const inp = document.getElementById('newSentenceInput');
+  const val = inp.value.trim();
+  if (!val) { showToast('error', 'Please enter a sentence first.'); return; }
+  if (sentences.includes(val)) { showToast('error', 'This sentence is already added.'); return; }
+  sentences.push(val);
+  inp.value = '';
+  renderSentences();
+  showToast('info', `Added: "${val}"`);
+}
+
+function removeSentence(i) {
+  sentences.splice(i, 1);
+  renderSentences();
+}
+
+// ── Collection ─────────────────────────────────────
+async function startCollection() {
+  if (sentences.length === 0) { showToast('error', 'Add at least one sentence first!'); return; }
+  const btn = document.getElementById('collectBtn');
+  const status = document.getElementById('collectStatus');
+  btn.disabled = true;
+  status.style.display = 'block';
+  status.textContent = 'Launching camera window...';
+  try {
+    const r = await fetch('/api/launch/sentence_collector', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ sentences })
+    });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      showToast('success', '🎥 ' + d.message);
+      status.textContent = '✅ Camera window open! Follow the on-screen instructions. Press R to record, SPACE to save each sample.';
+      status.style.color = 'var(--accent3)';
+    } else {
+      showToast('error', '❌ ' + d.message);
+      status.textContent = '❌ ' + d.message;
+      status.style.color = 'var(--danger)';
+    }
+  } catch(e) {
+    showToast('error', 'Error: ' + e.message);
+  }
+  setTimeout(() => btn.disabled = false, 5000);
+}
+
+// ── Training ───────────────────────────────────────
+async function startTraining() {
+  const btn = document.getElementById('trainBtn');
+  const log = document.getElementById('trainingLog');
+  const progress = document.getElementById('trainProgress');
+  const result = document.getElementById('trainResult');
+  
+  btn.disabled = true;
+  log.className = 'training-log show';
+  progress.className = 'training-progress show';
+  log.innerHTML = '<div class="log-line">⚡ Starting training...</div>';
+  result.style.display = 'none';
+
+  try {
+    const r = await fetch('/api/train/model', { method: 'POST' });
+    const d = await r.json();
+    if (d.status !== 'ok') {
+      showToast('error', d.message);
+      btn.disabled = false;
+      return;
+    }
+    showToast('info', 'Training started! Watch the log below.');
+    pollTrainingStatus(btn, log, progress, result);
+  } catch(e) {
+    showToast('error', 'Error: ' + e.message);
+    btn.disabled = false;
+  }
+}
+
+function pollTrainingStatus(btn, log, progress, result) {
+  if (trainingInterval) clearInterval(trainingInterval);
+  let lastLen = 0;
+  trainingInterval = setInterval(async () => {
+    try {
+      const r = await fetch('/api/train/status');
+      const d = await r.json();
+      const newLines = d.log.slice(lastLen);
+      newLines.forEach(line => {
+        const cls = line.includes('Epoch') ? 'epoch' : line.includes('✓') || line.includes('TRAINING_COMPLETE') || line.includes('Best') ? 'done' : line.includes('Error') ? 'err' : '';
+        log.innerHTML += `<div class="log-line ${cls}">${line}</div>`;
+      });
+      lastLen = d.log.length;
+      log.scrollTop = log.scrollHeight;
+
+      if (d.done) {
+        clearInterval(trainingInterval);
+        btn.disabled = false;
+        progress.className = 'training-progress';
+        if (d.success) {
+          result.style.display = 'block';
+          result.innerHTML = `<div style="background:rgba(16,185,129,0.08);border:1px solid rgba(16,185,129,0.3);border-radius:10px;padding:16px;color:var(--accent3)">✅ Training complete! Switch to the <strong>Test tab</strong> to try recognition.</div>`;
+          showToast('success', '🎉 Model trained successfully!');
+        } else {
+          result.style.display = 'block';
+          result.innerHTML = `<div style="background:rgba(239,68,68,0.08);border:1px solid rgba(239,68,68,0.3);border-radius:10px;padding:16px;color:var(--danger)">❌ Training failed. Check the log above for errors.</div>`;
+        }
+      }
+    } catch(e) {}
+  }, 1500);
+}
+
+async function checkTrainStatus() {
+  try {
+    const r = await fetch('/api/train/status');
+    const d = await r.json();
+    showToast('info', d.running ? '⏳ Training in progress...' : d.done ? (d.success ? '✅ Training completed!' : '❌ Training failed') : '📭 No active training session');
+  } catch(e) {}
+}
+
+// ── Test mode ──────────────────────────────────────
+async function loadModelStatus() {
+  try {
+    const r = await fetch('/api/model/status');
+    const d = await r.json();
+    const content = document.getElementById('modelStatusContent');
+    const sub = document.getElementById('modelStatusSub');
+    const panel = document.getElementById('trainedPanel');
+    const launchBtn = document.getElementById('launchTestBtn');
+
+    if (d.trained) {
+      sub.textContent = `Model ready — ${d.count} sentences trained`;
+      content.innerHTML = `
+        <div class="acc-badge">
+          <div>
+            <div class="acc-value">${d.accuracy}%</div>
+            <div class="acc-label">ACCURACY</div>
+          </div>
+          <div style="width:1px;height:40px;background:var(--border)"></div>
+          <div>
+            <div style="font-size:1.4rem;font-weight:800;color:var(--accent)">${d.count}</div>
+            <div class="acc-label">SENTENCES</div>
+          </div>
+        </div>`;
+      
+      panel.style.display = 'block';
+      document.getElementById('trainedCount').textContent = d.count;
+      document.getElementById('trainedList').innerHTML = d.sentences.map((s,i) => `
+        <div class="trained-item">
+          <span class="ti-icon">💬</span>
+          <span class="ti-text">${s}</span>
+          <span class="ti-meta">GESTURE ${i+1}</span>
+        </div>`).join('');
+      
+      launchBtn.disabled = false;
+    } else {
+      sub.textContent = 'No trained model found';
+      content.innerHTML = `<div style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:10px;padding:16px;color:var(--warn);font-size:0.85rem">
+        ⚠️ No trained model found. Go to the <strong>Train</strong> tab to collect samples and train the model first.
+      </div>`;
+      panel.style.display = 'none';
+      launchBtn.disabled = true;
+    }
+  } catch(e) {}
+}
+
+async function launchTest() {
+  const btn = document.getElementById('launchTestBtn');
+  const status = document.getElementById('testStatus');
+  btn.disabled = true;
+  status.style.display = 'block';
+  status.textContent = 'Launching recognizer window...';
+  try {
+    const r = await fetch('/api/launch/sentence_translator', { method: 'POST' });
+    const d = await r.json();
+    if (d.status === 'ok') {
+      showToast('success', '🚀 ' + d.message);
+      status.textContent = '✅ Sentence Recognizer launched! Check your desktop window.';
+      status.style.color = 'var(--accent3)';
+    } else {
+      showToast('error', '❌ ' + d.message);
+      status.textContent = '❌ ' + d.message;
+      status.style.color = 'var(--danger)';
+      if (d.message.includes('No trained model')) {
+        document.getElementById('unknownCard').classList.add('show');
+      }
+    }
+  } catch(e) {
+    showToast('error', e.message);
+  }
+  setTimeout(() => btn.disabled = false, 5000);
+}
+
+function teachUnknown() {
+  const val = document.getElementById('unknownSentenceInput').value.trim();
+  if (!val) { showToast('error', 'Enter the sentence first!'); return; }
+  sentences.push(val);
+  renderSentences();
+  document.getElementById('unknownSentenceInput').value = '';
+  document.getElementById('unknownCard').classList.remove('show');
+  switchTab('train');
+  showToast('info', `Added "${val}" to training list. Now collect gesture samples for it!`);
+}
+
+// ── Toast ──────────────────────────────────────────
+function showToast(type, msg) {
+  const t = document.getElementById('toast');
+  t.className = `toast show ${type}`;
+  const icons = { success:'✅', error:'❌', info:'ℹ️' };
+  t.innerHTML = `<span>${icons[type]||'ℹ️'}</span><span>${msg}</span>`;
+  setTimeout(() => t.classList.remove('show'), 5000);
+}
+
+// Init
+renderSentences();
+loadModelStatus();
+</script>
+</body>
+</html>
